@@ -1,0 +1,297 @@
+---
+title: "Final"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tsdl)
+tsdl_sales<-subset(tsdl,"Sales")
+attributes(tsdl_sales[[1]])
+tsdl_sales[[1]]
+original<-tsdl_sales[[1]]
+sale <- tsdl_sales[[1]][c(-187:-192)]
+#sale<-tsdl_sales[[1]]
+sale.ts <- ts(sale, start = c(1960,1), frequency = 12)
+sale.ts
+ts.plot(sale.ts,ylab = "Gasoline (Million Gallons)",  main = "Monthly Gasoline demand vs. Time")
+```
+```{r}
+# Plot has trend and seasonality components; we must remove them
+library(MASS)
+t = 1:length(sale.ts)
+fit = lm(sale.ts ~ t)
+bcTransform = boxcox(sale.ts ~ t, plotit = TRUE)
+```
+```{r}
+#Box Cox transform does not include lamba = 0 in CI, so \dfrac{y_i^{\lambda}-1}{\lambda}
+
+lambda = bcTransform$x[which(bcTransform$y == max(bcTransform$y))]
+sale.bc = (1/lambda)*(sale^lambda-1)
+sale.log = log(sale.ts)
+sale.sqrt = sqrt(sale.ts)
+op <- par(mfrow = c(1,2))
+ts.plot(sale.ts,main = "Original data",ylab = expression(X[t]))
+ts.plot(sale.bc,main = "Box-Cox tranformed data", ylab = expression(Y[t]))
+ts.plot(sale.ts,main = "Original data",ylab = expression(X[t]))
+ts.plot(sale.log,main = "Log tranformed data", ylab = expression(Y[t]))
+var(sale.ts)
+var(sale.bc)
+var(sale.log)
+var(sale.sqrt)
+```
+Log transformation has the lowest variance, so we go with log transformation.
+```{r}
+# Plot has trend and seasonality components; we must remove them
+op = par(mfrow = c(1,2))
+acf(sale.log,lag.max = 60,main = "")
+pacf(sale.log,lag.max = 60,main = "")
+title("Log Transformed Time Series", line = -1, outer=TRUE)
+
+x12 = diff(sale.ts, 12)
+var(x12)
+ts.plot(x12)
+op = par(mfrow = c(1,2))
+acf(x12,lag.max = 60,main = "")
+pacf(x12,lag.max = 60,main = "")
+title("Differenced at 12", line = -1, outer=TRUE)
+x12diff1 = diff(x12, 1)
+var(x12diff1)
+ts.plot(x12diff1)
+op = par(mfrow = c(1,2))
+acf(x12diff1,lag.max = 60,main = "")
+pacf(x12diff1,lag.max = 60,main = "")
+title("x12diff1", line = -1, outer=TRUE)
+x1 = diff(sale.ts, 1)
+var(x1)
+ts.plot(x1)
+op = par(mfrow = c(1,2))
+acf(x1,lag.max = 60,main = "")
+pacf(x1,lag.max = 60,main = "")
+title("Differenced at 1", line = -1, outer=TRUE)
+x1diff12 = diff(x1, 12)
+var(x1diff12)
+ts.plot(x1diff12)
+op = par(mfrow = c(1,2))
+acf(x1diff12,lag.max = 60,main = "")
+pacf(x1diff12,lag.max = 60,main = "")
+title("x1diff12", line = -1, outer=TRUE)
+
+
+y12 = diff(sale.log, 12)
+var(y12)
+ts.plot(y12)
+op = par(mfrow = c(1,2))
+acf(y12,lag.max = 60,main = "")
+pacf(y12,lag.max = 60,main = "")
+title("Differenced at 12 Log Transformed Time Series", line = -1, outer=TRUE)
+
+y1 = diff(sale.log, 1)
+var(y1)
+ts.plot(y1)
+op = par(mfrow = c(1,2))
+acf(y1,lag.max = 60,main = "")
+pacf(y1,lag.max = 60,main = "")
+title("Differenced at 1 Log Transformed Time Series", line = -1, outer=TRUE)
+
+y12diff12 = diff(y12, 12)
+var(y12diff12)
+ts.plot(y12diff12)
+
+y12diff1 = diff(y12, 1)
+var(y12diff1)
+ts.plot(y12diff1)
+op = par(mfrow = c(1,2))
+acf(y12diff1,lag.max = 60,main = "")
+pacf(y12diff1,lag.max = 60,main = "")
+title("y12diff1", line = -1, outer=TRUE)
+
+y1diff12 = diff(y1, 12)
+var(y1diff12)
+a1 = diff(y1diff12, 1)
+var(a1)
+a12 = diff(y1diff12, 12)
+var(a12)
+ts.plot(y1diff12)
+op = par(mfrow = c(1,2))
+acf(y1diff12,lag.max = 60,main = "")
+pacf(y1diff12,lag.max = 60,main = "")
+title("y1diff12", line = -1, outer=TRUE)
+
+y1diff1 = diff(y1, 1)
+var(y1diff1)
+ts.plot(y1diff1)
+```
+```{r}
+op = par(mfrow = c(1,2))
+acf(y1diff12,lag.max = 60,main = "")
+pacf(y1diff12,lag.max = 60,main = "")
+title("De-trended/seasonalized Time Series", line = -1, outer=TRUE)
+```
+ACF cuts off after lag 1 and possibly lag 2 for every 12 ticks while the PACF tails off leading me to believe that the model follows a (0,1,1) or a (0,1,2) seasonal component. For the non seasonal part, PACF cuts off after lag = 2 and lag = 5 meaning that it probably has an AR(2) or AR(5) counterpart.
+
+
+```{r}
+library(astsa)
+m1<-sarima(sale.ts,2,1,0,0,1,1, 12)
+
+m2<-sarima(sale.ts,2,1,1,0,1,1, 12)
+
+m3<-sarima(sale.ts,2,1,2,0,1,1, 12)
+
+m4<-sarima(sale.ts,2,1,3,0,1,1, 12)
+
+m5<-sarima(sale.ts,5,1,1,0,1,1, 12)
+
+m6<-sarima(sale.ts,5,1,0,0,1,1, 12)
+
+m7<-sarima(sale.ts,5,1,2,0,1,1, 12)
+
+m8<-sarima(sale.ts,5,1,3,0,1,1, 12)
+
+m9<-sarima(sale.ts,2,1,0,0,1,2, 12)
+
+m10<-sarima(sale.ts,2,1,1,0,1,2, 12)
+
+m11<-sarima(sale.ts,2,1,2,0,1,2, 12)
+
+m12<-sarima(sale.ts,2,1,3,0,1,2, 12)
+
+m13<-sarima(sale.ts,5,1,1,0,1,2, 12)
+
+m14<-sarima(sale.ts,5,1,0,0,1,2, 12)
+
+m15<-sarima(sale.ts,5,1,2,0,1,2, 12)
+
+m16<-sarima(sale.ts,5,1,3,0,1,2, 12)
+
+m1$AIC
+m2$AIC
+m3$AIC
+m4$AIC
+m5$AIC
+m6$AIC
+m7$AIC
+m8$AIC
+m9$AIC
+m10$AIC
+m11$AIC
+m12$AIC
+m13$AIC
+m14$AIC
+m15$AIC
+m16$AIC
+```
+The lowest AIC scores were 18.95 for model 16, 18.97 for model 15, 18.896 for model 12, 18.956 for model 8, 18.983 for model 7 and 18.984 for model 4. By the law of parsimony, we want to choose the model with the fewest parameters, so we decide on model 4 with 6 parameters.
+```{r}
+fit<-ar(y12diff1, method=c("yule-walker"))
+fit
+fit2<-ar(sale.ts, method=c("yule-walker"))
+fit2
+var(y12)
+library(qpcR)
+aiccs<-matrix(NA, nr = 6, nc = 6)
+dimnames(aiccs) = list(p = 0:5, q = 0:5)
+for(p in 0:5)
+{
+  for(q in 0:5)
+  {
+    aiccs[p+1, q+1] = AICc(arima(y1diff12, order=c(p,1,q),seasonal=list(order=c(0,1,1),period=12), method = "ML"))
+  }
+}
+aiccs
+```
+```{r}
+model4<- arima(sale.ts, order = c(2, 1, 3), seasonal = list(order = c(0, 1, 1), period = 12))
+model4
+Box.test(model4$residuals, lag = 14, type = c("Box-Pierce"), fitdf = 6)
+Box.test(model4$residuals, lag =14, type = c("Ljung-Box"), fitdf = 6)
+Box.test((model4$residuals)^2, lag =14, type = c("Ljung-Box"))
+shapiro.test(model4$residuals)
+
+ts.plot(model4$residuals, main="Model Residuals")
+op = par(mfrow = c(1,2))
+acf(model4$residuals,main = "Autocorrelation")
+pacf(model4$residuals,main = "Partial Autocorrelation")
+hist(model4$residuals,main = "Histogram")
+qqnorm(model4$residuals)
+qqline(model4$residuals, col = "blue")
+
+model16<- arima(sale.ts, order = c(5, 1, 3), seasonal = list(order = c(0, 1, 2), period = 12))
+model16
+Box.test(model16$residuals, lag = 14, type = c("Box-Pierce"), fitdf = 10)
+Box.test(model16$residuals, lag =14, type = c("Ljung-Box"), fitdf = 10)
+Box.test((model16$residuals)^2, lag =14, type = c("Ljung-Box"), fitdf = 0)
+shapiro.test(model16$residuals)
+
+ts.plot(model16$residuals, main="Model Residuals")
+op = par(mfrow = c(1,2))
+acf(model16$residuals,main = "Autocorrelation")
+pacf(model16$residuals,main = "Partial Autocorrelation")
+hist(model16$residuals,main = "Histogram")
+qqnorm(model16$residuals)
+qqline(model16$residuals, col = "blue")
+```
+```{r}
+plot.roots <- function(ar.roots=NULL, ma.roots=NULL, size=2, angles=FALSE, special=NULL, sqecial=NULL,my.pch=1,first.col="blue",second.col="red",main=NULL)
+{xylims <- c(-size,size)
+      omegas <- seq(0,2*pi,pi/500)
+      temp <- exp(complex(real=rep(0,length(omegas)),imag=omegas))
+      plot(Re(temp),Im(temp),typ="l",xlab="x",ylab="y",xlim=xylims,ylim=xylims,main=main)
+      abline(v=0,lty="dotted")
+      abline(h=0,lty="dotted")
+      if(!is.null(ar.roots))
+        {
+          points(Re(1/ar.roots),Im(1/ar.roots),col=first.col,pch=my.pch)
+          points(Re(ar.roots),Im(ar.roots),col=second.col,pch=my.pch)
+        }
+      if(!is.null(ma.roots))
+        {
+          points(Re(1/ma.roots),Im(1/ma.roots),pch="*",cex=1.5,col=first.col)
+          points(Re(ma.roots),Im(ma.roots),pch="*",cex=1.5,col=second.col)
+        }
+      if(angles)
+        {
+          if(!is.null(ar.roots))
+            {
+              abline(a=0,b=Im(ar.roots[1])/Re(ar.roots[1]),lty="dotted")
+              abline(a=0,b=Im(ar.roots[2])/Re(ar.roots[2]),lty="dotted")
+            }
+          if(!is.null(ma.roots))
+            {
+              sapply(1:length(ma.roots), function(j) abline(a=0,b=Im(ma.roots[j])/Re(ma.roots[j]),lty="dotted"))
+            }
+        }
+      if(!is.null(special))
+        {
+          lines(Re(special),Im(special),lwd=2)
+        }
+      if(!is.null(sqecial))
+        {
+          lines(Re(sqecial),Im(sqecial),lwd=2)
+        }
+        }
+
+model<- arima(sale.ts, order = c(2, 1, 3), seasonal = list(order = c(0, 1, 1), period = 12))
+model
+plot.roots(NULL,polyroot(c(1, 1.0298, 0.8367)), main="roots of ar part")
+plot.roots(NULL,polyroot(c(1, -0.0118, 0.0217, -0.3765)), main="roots of ma part")
+plot.roots(NULL,polyroot(c(1, -0.6736)), main="roots of seasonal ma part")
+```
+All the roots are outside the unit circle, this passes the root test, meaning the model is causal and invertible.
+All the coefficients are significant. 
+```{r}
+sarima.for(sale.ts, 6, 2, 1, 3, 0, 1, 1, 12)
+x<-c(1,2,3,4,5,6)
+Observed <- c(255918, 244642, 237579, 237579, 217775, 227621)
+Upper<-c(239821.816, 248806.544, 214537.774, 225749.588, 205510.49, 211875.78)
+Lower<-c(261786.184, 270789.856, 237027.226, 250278.212, 230039.51, 237096.02)
+Predicted<-c(250804.0, 259798.2, 225782.5, 238013.9, 226507.4, 224485.9)
+plot(x,Observed, xlab = "Time", ylab="Gasoline Demand", main="Predicted vs Observed", pch=15, col="black")
+lines(x, Upper, pch=16, col="blue")
+lines(x, Lower, pch=16, col="blue")
+points(x, Predicted, pch=16, col="red")
+```
